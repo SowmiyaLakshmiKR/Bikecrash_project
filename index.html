@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bike Prototype</title>
+<style>
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: black;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+  }
+
+  .container {
+    position: relative;
+    width: 800px; /* adjust for your image size */
+  }
+
+  .bike-image {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .speed-display, .location-display {
+    position: absolute;
+    color: white;
+    font-size: 22px;
+    font-weight: bold;
+    background-color: rgba(0,0,0,0.5);
+    padding: 6px 10px;
+    border-radius: 8px;
+  }
+
+  .speed-display {
+    top: 20px;
+    left: 20px;
+  }
+
+  .location-display {
+    top: 60px;
+    left: 20px;
+  }
+
+  button {
+    position: absolute;
+    background-color: rgba(255, 255, 255, 0.15);
+    color: white;
+    border: 2px solid white;
+    border-radius: 8px;
+    font-size: 18px;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  button:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+  }
+
+  /* Adjust manually after you add your image */
+  #accelerate-btn {
+    bottom: 100px;
+    right: 220px;
+  }
+
+  #brake-btn {
+    bottom: 100px;
+    left: 220px;
+  }
+
+  #crash-btn {
+    top: 20px;
+    right: 140px;
+  }
+
+  #reset-btn {
+    top: 20px;
+    right: 40px;
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <!-- Bike front-view image -->
+    <img src="bike_front.png" alt="Bike Front" class="bike-image" />
+
+    <div id="speed" class="speed-display">Speed: 0 km/h</div>
+    <div id="location" class="location-display">📍 Getting location...</div>
+
+    <button id="accelerate-btn">Accelerate</button>
+    <button id="brake-btn">Brake</button>
+    <button id="crash-btn">Crash</button>
+    <button id="reset-btn">Reset</button>
+  </div>
+
+<script>
+  // Variables
+  let currentSpeed = 0;
+  let crashed = false;
+  let latitude = null;
+  let longitude = null;
+
+  const CRASH_SPEED = 80; // speed threshold for crash
+  const speedDiv = document.getElementById('speed');
+  const locationDiv = document.getElementById('location');
+
+  // Start live tracking
+  function startLiveLocation() {
+    if (navigator.geolocation) {
+      navigator.geolocation.watchPosition(
+        (position) => {
+          latitude = position.coords.latitude;
+          longitude = position.coords.longitude;
+
+          console.log('Live location:', latitude, longitude);
+          locationDiv.innerText = `📍 Lat: ${latitude.toFixed(5)}, Lon: ${longitude.toFixed(5)}`;
+        },
+        (err) => console.error('Error getting location:', err.message),
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+      );
+    } else {
+      console.error('Geolocation not supported.');
+      locationDiv.innerText = "📍 Location not supported";
+    }
+  }
+
+  startLiveLocation();
+
+  // Update speed display
+  function updateSpeedDisplay() {
+    speedDiv.innerText = `Speed: ${currentSpeed} km/h`;
+  }
+
+  // Accelerate
+  document.getElementById('accelerate-btn').onclick = () => {
+    if (crashed) return alert("Bike crashed! Reset before accelerating again.");
+    currentSpeed += 10;
+    if (currentSpeed > 120) currentSpeed = 120;
+    updateSpeedDisplay();
+  };
+
+  // Brake
+  document.getElementById('brake-btn').onclick = () => {
+    if (crashed) return alert("Bike crashed! Reset before braking again.");
+    currentSpeed = Math.max(0, currentSpeed - 10);
+    updateSpeedDisplay();
+  };
+
+  // Crash
+  document.getElementById('crash-btn').onclick = () => {
+    if (!crashed && currentSpeed >= CRASH_SPEED) {
+      crashed = true;
+      sendCrashSOS(currentSpeed);
+      alert("🚨 Crash detected! SOS sent.");
+    } else if (currentSpeed < CRASH_SPEED) {
+      alert("Speed too low for a crash!");
+    } else {
+      alert("Crash already reported!");
+    }
+  };
+
+  // Reset
+  document.getElementById('reset-btn').onclick = () => {
+    currentSpeed = 0;
+    crashed = false;
+    updateSpeedDisplay();
+  };
+
+  // Send crash SOS (POST to backend)
+  function sendCrashSOS(speed) {
+    if (!latitude || !longitude) {
+      console.warn("⚠ Location not ready yet. Sending without coordinates.");
+    }
+
+    fetch('/api/crash', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ speed, latitude, longitude })
+    })
+    .then(res => res.json())
+    .then(data => console.log('Crash reported:', data))
+    .catch(err => console.error('Error sending crash SOS:', err));
+  }
+</script>
+</body>
+</html>
